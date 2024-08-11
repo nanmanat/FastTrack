@@ -7,7 +7,6 @@ from torch.utils.data import Dataset, DataLoader
 from PIL import Image
 import numpy as np
 from sklearn.metrics import precision_score, recall_score
-from torchvision.models import VGG16_Weights
 
 
 class ResidualBlock(nn.Module):

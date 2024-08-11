@@ -70,9 +70,9 @@ def compare_counts(file1, file2, output_file):
 if __name__ == "__main__":
     directory_path = "Annotations"  # Replace with your directory path containing XML files
     word = "object"       # Replace with the word you want to count
-    output_file = "results.txt"  # Replace with your desired output file path
+    output_file = "mismatch/results.txt"  # Replace with your desired output file path
     comparison_file = "ImageSets/Main/NNEW_test_4.txt"  # Replace with the path to the comparison file
-    mismatch_output_file = "mismatches_test_4.txt"  # Replace with your desired output file path for mismatches
+    mismatch_output_file = "mismatch/mismatches_test_4.txt"  # Replace with your desired output file path for mismatches
 
 
     process_directory(directory_path, word, output_file)
