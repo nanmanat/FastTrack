@@ -110,7 +110,7 @@ def compute_precision_recall(predictions, ground_truths, num_classes=1):
 
 
 def main():
-    image_folder = "ImageSets/JPEGImages"
+    image_folder = "JPEGImages"
     mask_folder = "Annotations"
 
     image_paths, mask_paths = get_image_and_mask_paths(image_folder, mask_folder)
