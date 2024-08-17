@@ -1,4 +1,3 @@
-import torch
 import torch.nn as nn
 import torchvision.models as models
 import os
@@ -11,6 +10,8 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, Resize, ToTensor
 from tqdm import tqdm
+from torchmetrics.detection.mean_ap import MeanAveragePrecision
+import torchmetrics
 
 class ResidualBlock(nn.Module):
     def __init__(self, in_channels, out_channels, stride=1):
@@ -41,7 +42,7 @@ class ResidualBlock(nn.Module):
 
 
 class VGG16Modified(nn.Module):
-    def __init__(self, num_classes=1):
+    def __init__(self, num_classes=50):
         super(VGG16Modified, self).__init__()
         vgg16 = models.vgg16(weights=models.VGG16_Weights)
         self.features = vgg16.features
@@ -177,12 +178,50 @@ def collate_fn(batch):
     return images, padded_targets
 
 
+def calculate_iou(box1, box2):
+    # Calculate the intersection
+    reshaped_array = box2.reshape(4, 1)
+    box1 = box1.reshape(4)
+    box2 = reshaped_array.reshape(4)
+
+    x1 = torch.max(box1[..., 0], box2[..., 0])
+    y1 = torch.max(box1[..., 1], box2[..., 1])
+    x2 = torch.min(box1[..., 2], box2[..., 2])
+    y2 = torch.min(box1[..., 3], box2[..., 3])
+
+    intersection = torch.clamp(x2 - x1, min=0) * torch.clamp(y2 - y1, min=0)
+
+    # Calculate the union
+    box1_area = (box1[..., 2] - box1[..., 0]) * (box1[..., 3] - box1[..., 1])
+    box2_area = (box2[..., 2] - box2[..., 0]) * (box2[..., 3] - box2[..., 1])
+    union = box1_area + box2_area - intersection
+
+    return intersection / union
+
+def calculate_precision_recall(pred_boxes, target_boxes, iou_threshold=0.5):
+    TP = 0  # True Positives
+    FP = 0  # False Positives
+    FN = 0  # False Negatives
+
+    for pred, target in zip(pred_boxes, target_boxes):
+        ious = calculate_iou(pred.unsqueeze(1), target.unsqueeze(0))
+
+        matches = ious > iou_threshold
+        TP += matches.sum().item()
+        FP += (matches == 0).sum().item()
+        FN += (ious == 0).sum().item()
+
+    precision = TP / (TP + FP + 1e-6)  # Add small value to prevent division by zero
+    recall = TP / (TP + FN + 1e-6)
+
+    return precision, recall
+
 def main():
     # Hyperparameters
     num_epochs = 10
     learning_rate = 0.001
     batch_size = 8
-    num_classes = 1  # Single class for object detection
+    num_classes = 50  # Single class for object detection
 
     # Paths to the dataset
     image_folder = "JPEGImages"
@@ -205,10 +244,19 @@ def main():
     criterion = nn.MSELoss()  # Mean Squared Error for bounding box regression
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
+    # Initialize Mean Average Precision metric
+    metric = MeanAveragePrecision()
+
+    # Initialize precision and recall metrics
+    precision_metric = torchmetrics.Precision(num_classes=1, average='none', task='binary' )
+    recall_metric = torchmetrics.Recall(num_classes=1, average='none', task='binary')
+
     # Training Loop
     for epoch in range(num_epochs):
         model.train()
         running_loss = 0.0
+        epoch_precision = 0.0
+        epoch_recall = 0.0
 
         for images, targets in tqdm(dataloader, desc=f"Epoch {epoch + 1}/{num_epochs}"):
             images = images.to(device)
@@ -238,14 +286,36 @@ def main():
 
             running_loss += loss.item()
 
+            # Calculate precision and recall
+            preds = flattened_outputs.argmax(dim=1)
+            targ = flattened_targets.argmax(dim=1)
+
+            # Normalize to [0, 1]
+            min_val = flattened_targets.min()
+            max_val = flattened_targets.max()
+            normalized_tensor = (flattened_targets - min_val) / (max_val - min_val)
+
+            # Scale to [-1, 0]
+            scaled_tensor = normalized_tensor * -1
+
+            precision, recall = calculate_precision_recall(flattened_outputs, scaled_tensor)
+            epoch_precision += precision
+            epoch_recall += recall
+
+        avg_precision = epoch_precision / len(dataloader)
+        avg_recall = epoch_recall / len(dataloader)
+
         # Print loss at the end of each epoch
-        print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {running_loss / len(dataloader):.4f}")
+        print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {running_loss / len(dataloader):.4f}, Precision: {avg_precision:.4f}, Recall: {avg_recall:.4f}")
 
     # Save the trained model
     torch.save(model.state_dict(), "object_detection_model.pth")
     print("Model saved as object_detection_model.pth")
 
-#
+
+if __name__ == "__main__":
+    device = torch.device("cuda")
+    main()
 
 def EvaluateModel():
     # Paths to the dataset
@@ -273,7 +343,7 @@ def EvaluateModel():
     mean_iou = evaluate_model(model, test_dataloader, device)
     print(f"Mean IoU: {mean_iou:.4f}")
 
-
-if __name__ == "__main__":
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    EvaluateModel()
+#
+# if __name__ == "__main__":
+#     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#     EvaluateModel()
