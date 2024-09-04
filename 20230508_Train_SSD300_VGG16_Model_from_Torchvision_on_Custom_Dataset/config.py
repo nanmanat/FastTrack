@@ -10,7 +10,7 @@ DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device('cp
 # Training images and XML files directory.
 TRAIN_DIR = 'data/train/ImageSets'
 # Validation images and XML files directory.
-VALID_DIR = 'data/train/ImageSets'
+VALID_DIR = 'data/val'
 
 # Classes: 0 index is reserved for background.
 CLASSES = [

@@ -51,7 +51,7 @@ if __name__ == '__main__':
     model.to(DEVICE).eval()
 
     test_dataset = create_valid_dataset(
-        'data/License Plate Recognition.v1-raw-images.voc/test'
+        'data/test'
     )
     test_loader = create_valid_loader(test_dataset, num_workers=NUM_WORKERS)
 
