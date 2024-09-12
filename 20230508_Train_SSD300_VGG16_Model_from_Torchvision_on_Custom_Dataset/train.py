@@ -55,10 +55,10 @@ def train(train_data_loader, model):
         targets = [{k: v.to(DEVICE) for k, v in t.items()} for t in targets]
         loss_dict = model(images, targets)
 
-        losses = sum(loss for loss in loss_dict.values())
+        losses = sum(abs(loss) for loss in loss_dict.values())
         loss_value = losses.item()
 
-        train_loss_hist.send(loss_value)
+        train_loss_hist.send(abs(loss_value))
 
         losses.backward()
         optimizer.step()
@@ -124,7 +124,7 @@ if __name__ == '__main__':
         p.numel() for p in model.parameters() if p.requires_grad)
     print(f"{total_trainable_params:,} training parameters.")
     params = [p for p in model.parameters() if p.requires_grad]
-    optimizer = torch.optim.SGD(params, lr=0.0001, momentum=0.9, nesterov=True)
+    optimizer = torch.optim.SGD(params, lr=0.001, momentum=0.9, nesterov=True)
     scheduler = StepLR(
         optimizer=optimizer, step_size=15, gamma=0.1, verbose=True
     )
@@ -158,7 +158,7 @@ if __name__ == '__main__':
         start = time.time()
         train_loss = train(train_loader, model)
         metric_summary = validate(valid_loader, model)
-        print(f"Epoch #{epoch+1} train loss: {train_loss_hist.value:.3f}")   
+        print(f"Epoch #{epoch+1} train loss: {train_loss_hist.value:.3f}")
         print(f"Epoch #{epoch+1} mAP: {metric_summary['map']}")   
         end = time.time()
         print(f"Took {((end - start) / 60):.3f} minutes for epoch {epoch}")
