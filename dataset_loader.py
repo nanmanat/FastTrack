@@ -4,6 +4,7 @@ from PIL import Image
 import os
 from torchvision import transforms
 
+
 class ImageDataset(Dataset):
     def __init__(self, txt_file, img_dir, transform=None):
         # Load the dataset
@@ -31,20 +32,34 @@ class ImageDataset(Dataset):
 
         return image, label
 
-# Define any transformations you want to apply to the images (e.g., resizing, normalization)
-transform = transforms.Compose([
-    transforms.Resize((224, 224)),  # Resize the image
-    transforms.ToTensor(),          # Convert image to PyTorch tensor
-])
 
-# Path to the dataset file and image directory
-txt_file = 'NNEW_trainval_1.txt'  # Replace with the actual file path
-img_dir = 'JPEGImages'       # Replace with the directory where images are stored
+def get_dataset(file_name):
+    # Define any transformations you want to apply to the images (e.g., resizing, normalization)
+    transform = transforms.Compose([
+        transforms.Resize((224, 224)),  # Resize the image
+        transforms.ToTensor(),  # Convert image to PyTorch tensor
+    ])
 
-# Initialize the dataset and dataloader
-dataset = ImageDataset(txt_file, img_dir, transform=transform)
-dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
+    # Path to the dataset file and image directory
+    txt_file = file_name  # Replace with the actual file path
+    img_dir = 'JPEGImages'  # Replace with the directory where images are stored
 
-# Iterate through the dataloader
-for images, labels in dataloader:
-    print(images.shape, labels)
+    # Initialize the dataset and dataloader
+    dataset = ImageDataset(txt_file, img_dir, transform=transform)
+    dataloader = DataLoader(dataset, batch_size=16, shuffle=True)
+
+    return dataloader
+
+
+def main():
+    # Load the dataset for a specific fold
+    fold = '1'
+    dataloader = get_dataset(fold)
+
+    # Iterate over the dataset
+    for images, labels in dataloader:
+        print(images.shape, labels)
+
+
+if __name__ == '__main__':
+    main()
